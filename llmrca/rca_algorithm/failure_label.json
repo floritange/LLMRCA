@@ -1,0 +1,442 @@
+{
+    "1.1": {
+        "service": [
+            "embedding",
+            "reranking",
+            "retrieve",
+            "llm"
+        ],
+        "nonservice": [
+            "metric@rag@cpu_usage_percent",
+            "retrieve>metric@cpu_usage",
+            "embedding>metric@cpu_usage",
+            "reranking>metric@cpu_usage"
+        ]
+    },
+    "1.2": {
+        "service": [
+            "embedding",
+            "reranking",
+            "retrieve",
+            "llm"
+        ],
+        "nonservice": [
+            "metric@rag@cpu_usage_percent",
+            "retrieve>metric@cpu_usage",
+            "embedding>metric@cpu_usage",
+            "reranking>metric@cpu_usage"
+        ]
+    },
+    "1.3": {
+        "service": [
+            "embedding",
+            "reranking",
+            "retrieve",
+            "llm"
+        ],
+        "nonservice": [
+            "metric@rag@cpu_usage_percent",
+            "retrieve>metric@cpu_usage",
+            "embedding>metric@cpu_usage",
+            "reranking>metric@cpu_usage"
+        ]
+    },
+    "1.4": {
+        "service": [
+            "embedding",
+            "reranking",
+            "retrieve",
+            "llm"
+        ],
+        "nonservice": [
+            "metric@rag@cpu_usage_percent",
+            "retrieve>metric@cpu_usage",
+            "embedding>metric@cpu_usage",
+            "reranking>metric@cpu_usage"
+        ]
+    },
+    "1.5": {
+        "service": [
+            "embedding",
+            "reranking",
+            "retrieve",
+            "llm"
+        ],
+        "nonservice": [
+            "metric@rag@cpu_usage_percent",
+            "retrieve>metric@cpu_usage",
+            "embedding>metric@cpu_usage",
+            "reranking>metric@cpu_usage"
+        ]
+    },
+    "2.1": {
+        "service": [
+            "llm_scheduler",
+            "llm_generate"
+        ],
+        "nonservice": [
+            "metric@vllm@cpu_usage_percent",
+            "llm_scheduler>metric@cpu_usage",
+            "llm_generate>metric@cpu_usage"
+        ]
+    },
+    "2.2": {
+        "service": [
+            "llm_scheduler",
+            "llm_generate"
+        ],
+        "nonservice": [
+            "metric@vllm@cpu_usage_percent",
+            "llm_scheduler>metric@cpu_usage",
+            "llm_generate>metric@cpu_usage"
+        ]
+    },
+    "2.3": {
+        "service": [
+            "llm_scheduler",
+            "llm_generate"
+        ],
+        "nonservice": [
+            "metric@vllm@cpu_usage_percent",
+            "llm_scheduler>metric@cpu_usage",
+            "llm_generate>metric@cpu_usage"
+        ]
+    },
+    "2.4": {
+        "service": [
+            "llm_scheduler",
+            "llm_generate"
+        ],
+        "nonservice": [
+            "metric@vllm@cpu_usage_percent",
+            "llm_scheduler>metric@cpu_usage",
+            "llm_generate>metric@cpu_usage"
+        ]
+    },
+    "2.5": {
+        "service": [
+            "llm_scheduler",
+            "llm_generate"
+        ],
+        "nonservice": [
+            "metric@vllm@cpu_usage_percent",
+            "llm_scheduler>metric@cpu_usage",
+            "llm_generate>metric@cpu_usage"
+        ]
+    },
+    "3.1": {
+        "service": [
+            "embedding"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_3_gpu_graph_clock",
+            "embedding>metric@gpu_graph_clock"
+        ]
+    },
+    "3.2": {
+        "service": [
+            "embedding"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_3_gpu_graph_clock",
+            "embedding>metric@gpu_graph_clock"
+        ]
+    },
+    "3.3": {
+        "service": [
+            "embedding"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_3_gpu_graph_clock",
+            "embedding>metric@gpu_graph_clock"
+        ]
+    },
+    "3.4": {
+        "service": [
+            "embedding"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_3_gpu_graph_clock",
+            "embedding>metric@gpu_graph_clock"
+        ]
+    },
+    "4.1": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_4_gpu_graph_clock",
+            "reranking>metric@gpu_graph_clock"
+        ]
+    },
+    "4.2": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_4_gpu_graph_clock",
+            "reranking>metric@gpu_graph_clock"
+        ]
+    },
+    "4.3": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_4_gpu_graph_clock",
+            "reranking>metric@gpu_graph_clock"
+        ]
+    },
+    "4.4": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "metric@rag@gpu_4_gpu_graph_clock",
+            "reranking>metric@gpu_graph_clock"
+        ]
+    },
+    "5.1": {
+        "service": [
+            "llm_generate",
+            "llm_scheduler"
+        ],
+        "nonservice": [
+            "metric@vllm@gpu_5_gpu_graph_clock",
+            "llm_scheduler>metric@gpu_graph_clock",
+            "llm_generate>metric@gpu_graph_clock"
+        ]
+    },
+    "5.2": {
+        "service": [
+            "llm_generate",
+            "llm_scheduler"
+        ],
+        "nonservice": [
+            "metric@vllm@gpu_5_gpu_graph_clock",
+            "llm_scheduler>metric@gpu_graph_clock",
+            "llm_generate>metric@gpu_graph_clock"
+        ]
+    },
+    "5.3": {
+        "service": [
+            "llm_generate",
+            "llm_scheduler"
+        ],
+        "nonservice": [
+            "metric@vllm@gpu_5_gpu_graph_clock",
+            "llm_scheduler>metric@gpu_graph_clock",
+            "llm_generate>metric@gpu_graph_clock"
+        ]
+    },
+    "5.4": {
+        "service": [
+            "llm_generate",
+            "llm_scheduler"
+        ],
+        "nonservice": [
+            "metric@vllm@gpu_5_gpu_graph_clock",
+            "llm_scheduler>metric@gpu_graph_clock",
+            "llm_generate>metric@gpu_graph_clock"
+        ]
+    },
+    "6.1": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "6.2": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "6.3": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "7.1": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "7.2": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "7.3": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "log@rag@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO",
+            "query>log@llmrca.create_vdb.pipeline.rag - [rag.py:143] - INFO"
+        ]
+    },
+    "8.1": {
+        "service": [
+            "llm_request"
+        ],
+        "nonservice": [
+            "log@vllm@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "query>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "llm>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO"
+        ]
+    },
+    "8.2": {
+        "service": [
+            "llm_request"
+        ],
+        "nonservice": [
+            "log@vllm@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "query>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "llm>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO"
+        ]
+    },
+    "8.3": {
+        "service": [
+            "llm_request"
+        ],
+        "nonservice": [
+            "log@vllm@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "query>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO",
+            "llm>log@vllm.engine.async_llm_engine - [async_llm_engine.py:648] - INFO"
+        ]
+    },
+    "9.1": {
+        "service": [
+            "llm_generate"
+        ],
+        "nonservice": [
+            "trace@llm_request@llm_model_name"
+        ]
+    },
+    "10.1": {
+        "service": [
+            "embedding"
+        ],
+        "nonservice": [
+            "trace@embedding@embedding_model_name"
+        ]
+    },
+    "11.1": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@reranking@rerank_model_name"
+        ]
+    },
+    "12.1": {
+        "service": [
+            "retrieve"
+        ],
+        "nonservice": [
+            "quality@record@quality_kb"
+        ]
+    },
+    "13.1": {
+        "service": [
+            "retrieve",
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@retrieve@retrieve_num"
+        ]
+    },
+    "13.2": {
+        "service": [
+            "retrieve",
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@retrieve@retrieve_num"
+        ]
+    },
+    "14.1": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@reranking@top_k"
+        ]
+    },
+    "14.2": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@reranking@top_k"
+        ]
+    },
+    "14.3": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@reranking@top_k"
+        ]
+    },
+    "14.4": {
+        "service": [
+            "reranking"
+        ],
+        "nonservice": [
+            "trace@reranking@top_k"
+        ]
+    },
+    "15.1": {
+        "service": [
+            "llm_generate",
+            "llm_scheduler"
+        ],
+        "nonservice": [
+            "quality@record@quality_prompt"
+        ]
+    },
+    "16.1": {
+        "service": [
+            "llm_generate"
+        ],
+        "nonservice": [
+            "trace@llm_request@parameters_max_tokens"
+        ]
+    },
+    "16.2": {
+        "service": [
+            "llm_generate"
+        ],
+        "nonservice": [
+            "trace@llm_request@parameters_max_tokens"
+        ]
+    },
+    "16.3": {
+        "service": [
+            "llm_generate"
+        ],
+        "nonservice": [
+            "trace@llm_request@parameters_max_tokens"
+        ]
+    }
+}
