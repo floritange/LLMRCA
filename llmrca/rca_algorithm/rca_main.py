@@ -29,16 +29,16 @@ from torch_geometric.utils import dense_to_sparse
 
 # warnings.filterwarnings("ignore", category=UserWarning, module="torch_geometric.deprecation")
 # logging.basicConfig(
-#     level=logging.DEBUG,  # 日志级别
+#     level=logging.DEBUG,  # Log level
 #     format="%(asctime)s - %(name)s - [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s",
-#     handlers=[logging.StreamHandler()],  # 输出到控制台
+#     handlers=[logging.StreamHandler()],  # Output to console
 # )
 
 
 seed_id = 10
 
 pd.options.mode.chained_assignment = None
-# 设置随机数种子
+# Set random seed
 random.seed(seed_id)
 torch.manual_seed(seed_id)
 np.random.seed(seed_id)
@@ -50,27 +50,39 @@ metric_name_vllm_gpu = f"{global_config['DEVICE_LLM']}"
 metric_name_embedding_gpu = f"{global_config['DEVICE_EMBEDDING'].split(':')[1]}"
 metric_name_reranker_gpu = f"{global_config['DEVICE_RERANKER'].split(':')[1]}"
 
-# 读取标签键值对
+# Read label key-value pairs
 failure_lable_df = pd.read_csv(project_root + "/llmrca/rca_algorithm/failure_label.csv")
 failure_lable_dict = dict(zip(failure_lable_df["failure_label"], failure_lable_df["metric_name"]))
 # print(failure_lable_dict)
 quality_label_list = [9.1, 10.1, 11.1, 12.1, 13.1, 13.2, 14.1, 14.2, 14.3, 14.4, 15.1, 16.1, 16.2, 16.3]
 
-# 所有列
+# All columns
 data_columns_df = pd.read_csv(project_root + "/llmrca/rca_algorithm/data_columns.csv")
 all_columns = data_columns_df.columns
 metric_qdrant_nogpu_columns = [col for col in all_columns if col.startswith("metric@qdrant") and all(x not in col for x in ["gpu", "disk_", "mem_"])]
 metric_rag_nogpu_columns = [col for col in all_columns if col.startswith("metric@rag") and all(x not in col for x in ["gpu", "disk_", "mem_"])]
 metric_rag_gpu_embedding_columns = [
-    col for col in all_columns if col.startswith("metric@rag") and f"gpu_{metric_name_embedding_gpu}" in col and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
+    col
+    for col in all_columns
+    if col.startswith("metric@rag")
+    and f"gpu_{metric_name_embedding_gpu}" in col
+    and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
 ]
 metric_rag_gpu_reranker_columns = [
-    col for col in all_columns if col.startswith("metric@rag") and f"gpu_{metric_name_reranker_gpu}" in col and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
+    col
+    for col in all_columns
+    if col.startswith("metric@rag")
+    and f"gpu_{metric_name_reranker_gpu}" in col
+    and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
 ]
 
 metric_vllm_nogpu_columns = [col for col in all_columns if col.startswith("metric@vllm") and all(x not in col for x in ["gpu", "disk_", "mem_"])]
 metric_vllm_gpu_columns = [
-    col for col in all_columns if col.startswith("metric@vllm") and f"gpu_{metric_name_vllm_gpu}" in col and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
+    col
+    for col in all_columns
+    if col.startswith("metric@vllm")
+    and f"gpu_{metric_name_vllm_gpu}" in col
+    and all(x not in col for x in ["gpu_fan_speed", "gpu_memory", "gpu_utilization_percent", "gpu_temperature_C", "gpu_sm", "gpu_power"])
 ]
 
 
@@ -128,7 +140,9 @@ log_vllm_columns = [col for col in all_columns if col.startswith("log@vllm") and
 
 performance_graph_data = {
     "query>duration": ["retrieve>duration", "reranking>duration", "llm>duration"] + log_rag_columns,
-    "retrieve>duration": ["embedding>duration", "trace@retrieve@documents_contents_sum", "trace@retrieve@retrieve_num", "quality@record@quality_kb"] + metric_qdrant_nogpu_columns + metric_rag_nogpu_columns,
+    "retrieve>duration": ["embedding>duration", "trace@retrieve@documents_contents_sum", "trace@retrieve@retrieve_num", "quality@record@quality_kb"]
+    + metric_qdrant_nogpu_columns
+    + metric_rag_nogpu_columns,
     # "trace@retrieve@documents_contents_sum": ["trace@retrieve@retrieve_num", "quality@record@quality_kb", "trace@embedding@embedding_model_name"],
     "llm>duration": ["llm_request>duration"] + metric_rag_nogpu_columns,
     "llm_request>duration": ["llm_scheduler>duration", "llm_generate>duration"] + log_vllm_columns,
@@ -145,7 +159,13 @@ performance_graph_data = {
     + metric_vllm_nogpu_columns
     + metric_vllm_gpu_columns,
     # "trace@query@llm_token_count_completion": ["trace@llm_request@parameters_max_tokens"],
-    "reranking>duration": ["trace@retrieve@retrieve_num", "trace@retrieve@documents_contents_sum", "trace@reranking@output_documents_contents_sum", "trace@reranking@rerank_model_name", "trace@reranking@top_k"]
+    "reranking>duration": [
+        "trace@retrieve@retrieve_num",
+        "trace@retrieve@documents_contents_sum",
+        "trace@reranking@output_documents_contents_sum",
+        "trace@reranking@rerank_model_name",
+        "trace@reranking@top_k",
+    ]
     + metric_rag_nogpu_columns
     + metric_rag_gpu_reranker_columns,
     # "trace@reranking@output_documents_contents_sum": ["trace@reranking@top_k"],
@@ -160,7 +180,7 @@ performance_graph_data = {
     # "metric@rag@gpu_4_gpu_memory_process_used_MB": ["trace@reranking@rerank_model_name"],
     # # "metric@rag@gpu_5_gpu_memory_used_MB": ["metric@rag@gpu_5_gpu_memory_process_u
     # "trace@query@llm_token_count_prompt": ["trace@llm_request@llm_model_name","trace@reranking@top_k"],
-    # "trace@query@llm_token_count_prompt": ["trace@reranking@output_documents_contents_sum", "quality@record@quality_prompt"],
+    # "trace@query@llm_token_count_prompt": ["trace@reranking@top_k", "trace@retrieve@retrieve_num", "trace@embedding@embedding_model_name", "quality@record@quality_kb", "trace@llm_request@llm_model_name"],
     # "metric@rag@gpu_3_gpu_sm_activity_percent": ["metric@rag@gpu_3_gpu_graph_clock"],
     # "metric@rag@gpu_3_gpu_power_W": ["metric@rag@gpu_3_gpu_graph_clock"],
     # "metric@rag@gpu_4_gpu_sm_activity_percent": ["metric@rag@gpu_4_gpu_graph_clock"],
@@ -183,8 +203,20 @@ quality_graph_data = {
 }
 
 add_performance_graph_data = {
-    "trace@reranking@output_documents_contents_sum": ["trace@reranking@top_k", "trace@retrieve@retrieve_num", "trace@embedding@embedding_model_name", "quality@record@quality_kb", "trace@llm_request@llm_model_name"],
-    "trace@query@llm_token_count_prompt": ["trace@reranking@top_k", "trace@retrieve@retrieve_num", "trace@embedding@embedding_model_name", "quality@record@quality_kb", "trace@llm_request@llm_model_name"],
+    "trace@reranking@output_documents_contents_sum": [
+        "trace@reranking@top_k",
+        "trace@retrieve@retrieve_num",
+        "trace@embedding@embedding_model_name",
+        "quality@record@quality_kb",
+        "trace@llm_request@llm_model_name",
+    ],
+    "trace@query@llm_token_count_prompt": [
+        "trace@reranking@top_k",
+        "trace@retrieve@retrieve_num",
+        "trace@embedding@embedding_model_name",
+        "quality@record@quality_kb",
+        "trace@llm_request@llm_model_name",
+    ],
     "trace@retrieve@documents_contents_sum": ["trace@retrieve@retrieve_num"],
 }
 
@@ -193,7 +225,7 @@ def filter_dataframe(df, graph_data, column_name="query>duration", lower_percent
     lower_bound = df[column_name].quantile(lower_percentile / 100)
     upper_bound = df[column_name].quantile(upper_percentile / 100)
     filtered_df = df[(df[column_name] >= lower_bound) & (df[column_name] <= upper_bound)]
- 
+
     relevant_columns = set(graph_data.keys())
     for children in graph_data.values():
         relevant_columns.update(children)
@@ -227,36 +259,34 @@ def build_edge_index(graph_data, df_columns):
 
 
 def create_graph_from_df(df, graph_structure):
-    """根据邻接矩阵构建图并按照图的结构处理DataFrame"""
-    # 收集所有节点，包括那些只作为依赖项出现的节点
+    """Create a graph based on the adjacency matrix and process the DataFrame according to the graph structure"""
+    # Collect all nodes, including those that only appear as dependencies
     all_nodes = set(graph_structure.keys())
     for dependencies in graph_structure.values():
         all_nodes.update(dependencies)
 
-    # 创建节点到索引的映射
-    node_names = sorted(all_nodes)  # 排序以确保顺序一致
+    # Create a mapping from node names to indices
+    node_names = sorted(all_nodes)  # Sort to ensure consistent order
     node_to_index = {node: idx for idx, node in enumerate(node_names)}
     num_nodes = len(node_names)
-    # for id, name in enumerate(node_names):
-    #     print(id, name)
 
-    # 构建邻接矩阵
+    # Build the adjacency matrix
     A = np.zeros((num_nodes, num_nodes))
     for node_i, dependencies in graph_structure.items():
         for node_j in dependencies:
             if node_j in node_to_index:
                 A[node_to_index[node_i], node_to_index[node_j]] = 1
 
-    # 生成邻接矩阵的边索引
+    # Generate the edge index from the adjacency matrix
     edge_index = dense_to_sparse(torch.tensor(A, dtype=torch.float))[0]
 
-    # 逐行处理 DataFrame，生成图数据
+    # Process the DataFrame row by row, generating graph data
     data_list = []
     for _, row in df.iterrows():
-        # 确保 DataFrame 中的列名与 node_names 一致
+        # Ensure the column names in the DataFrame match the node names
         X = np.array([row.get(node_name, 0) for node_name in node_names], dtype=np.float32).reshape(num_nodes, 1)
 
-        # 创建图数据
+        # Create graph data
         data = Data(x=torch.tensor(X, dtype=torch.float), edge_index=edge_index)
         data_list.append(data)
 
@@ -265,29 +295,31 @@ def create_graph_from_df(df, graph_structure):
 
 def classify_nodes_with_duration(performance_graph_data):
     """
-    将 performance_graph_data 中的节点分为 component 节点（名称中包含 '>duration'）和叶子节点。
+    Classify the nodes in performance_graph_data into component nodes (those whose name contains '>duration')
+    and leaf nodes.
     """
-    # 所有父节点集合
+    # Set of all parent nodes
     parent_nodes = set(performance_graph_data.keys())
-    # 所有子节点集合
+    # Set of all child nodes
     child_nodes = set(node for children in performance_graph_data.values() for node in children)
-    # 所有节点集合
+    # Set of all nodes
     all_nodes = parent_nodes.union(child_nodes)
-    # Component 节点：名称中包含 '>duration'
+    # Component nodes: those whose names contain '>duration'
     component_nodes = {node for node in all_nodes if ">duration" in node}
-    # 叶子节点 = 所有节点 - 非叶子节点（被依赖的节点 + 父节点）
+    # Leaf nodes = all nodes - non-leaf nodes (dependent nodes + parent nodes)
     leaf_nodes = all_nodes - parent_nodes
-    # 再从叶子节点中过滤掉包含 '>duration' 的节点
+    # Further filter leaf nodes to exclude those containing '>duration'
     leaf_nodes = {node for node in leaf_nodes if ">duration" not in node}
     return component_nodes, leaf_nodes
 
 
 def find_parent_components_with_scores(nonservice_names_and_scores_all, performance_graph_data, sorted_names_and_scores_all):
     """
-    找到 nonservice_names_and_scores_all 中的节点的父 component 节点（名称包含 '>duration'）。
-    父节点按 score 从高到低排序，并去重，仅保留一个父节点。
+    Find parent component nodes (those whose names contain '>duration') for the nodes in
+    nonservice_names_and_scores_all. Parent nodes are sorted by score in descending order and duplicates
+    are removed, retaining only one parent node.
     """
-    # 构建反向索引（子节点 -> 父节点）
+    # Build a reverse index (child node -> parent nodes)
     reverse_graph = {}
     for parent, children in performance_graph_data.items():
         for child in children:
@@ -295,30 +327,30 @@ def find_parent_components_with_scores(nonservice_names_and_scores_all, performa
                 reverse_graph[child] = []
             reverse_graph[child].append(parent)
 
-    # 构建结果列表，查找每个节点的父 component 节点
+    # Build the result list, finding the parent component nodes for each node
     parent_components_with_scores = []
 
     for sublist, original_sublist in zip(nonservice_names_and_scores_all, sorted_names_and_scores_all):
         sublist_with_parents = []
         for name, score in sublist:
-            # 找到当前节点的父节点
+            # Find the parent nodes for the current node
             if name in reverse_graph:
-                # 筛选出父节点中包含 '>duration' 的节点，排除 'query>duration'
+                # Filter parent nodes that contain '>duration' in their names, excluding 'query>duration'
                 parent_components = [parent for parent in reverse_graph[name] if ">duration" in parent and "query>duration" not in parent]
                 parent_scores = []
                 for parent in parent_components:
-                    # 获取父节点的分数，从 sorted_names_and_scores_all 中匹配
+                    # Get the score of the parent node from sorted_names_and_scores_all
                     parent_score = next((s for s, n in original_sublist if n == parent), None)
                     if parent_score is not None:
                         parent_scores.append((parent, parent_score))
 
-                # 对父节点按分数从高到低排序
+                # Sort the parent nodes by score in descending order
                 parent_scores = sorted(parent_scores, key=lambda x: x[1], reverse=True)
 
-                # 追加到子列表
+                # Append to the sublist
                 sublist_with_parents.extend(parent_scores)
 
-        # 按分数排序，去重，仅保留按顺序第一个父节点
+        # Sort by score, remove duplicates, and retain only the first parent
         unique_parents = []
         seen_parents = set()
         for parent, score in sublist_with_parents:
@@ -334,7 +366,7 @@ def find_parent_components_with_scores(nonservice_names_and_scores_all, performa
 def hit_ratio_at_k(actual_root_causes, predicted_top_k, k):
     hr_k = []
     for actual_roots, predicted_roots in zip(actual_root_causes, predicted_top_k):
-        # 检查预测的前 k 个根因中是否包含实际根因
+        # Check if any of the top k predicted root causes contain the actual root causes
         hit = any(root in predicted_roots[:k] for root in actual_roots)
         hr_k.append(hit)
     return np.mean(hr_k)
@@ -343,20 +375,20 @@ def hit_ratio_at_k(actual_root_causes, predicted_top_k, k):
 def ndcg_at_k(actual_root_causes, predicted_top_k, k):
     ndcg_k = []
     for actual_roots, predicted_roots in zip(actual_root_causes, predicted_top_k):
-        # 计算 DCG@k
+        # Calculate DCG@k
         dcg = 0
         for i, predicted_root in enumerate(predicted_roots[:k]):
             rel = 1 if predicted_root in actual_roots else 0
             dcg += (2**rel - 1) / np.log2(i + 2)  # i+2 for 1-based index
 
-        # 计算 IDCG@k (理想情况下的 DCG@k)
+        # Calculate IDCG@k (ideal DCG@k)
         idcg = 0
         ideal_relevance = [1 if root in actual_roots else 0 for root in predicted_roots[:k]]
         ideal_relevance.sort(reverse=True)
         for i, rel in enumerate(ideal_relevance):
             idcg += (2**rel - 1) / np.log2(i + 2)  # i+2 for 1-based index
 
-        # 计算 NDCG@k
+        # Calculate NDCG@k
         ndcg_k.append(dcg / idcg if idcg > 0 else 0)
 
     return np.mean(ndcg_k)
@@ -369,12 +401,11 @@ def write_results_to_csv(service_labels, service_lists, nonservice_labels, nonse
         ndcg_k = ndcg_at_k(service_labels, service_lists, k)
         nonservicehr_k = hit_ratio_at_k(nonservice_labels, nonservice_lists, k)
         nonservicendcg_k = ndcg_at_k(nonservice_labels, nonservice_lists, k)
-        # 保存结果
+        # Save the results
         # results.append([k, hr_k, ndcg_k, nonservicehr_k, nonservicendcg_k])
         results.append([k, hr_k * 100, ndcg_k * 100, nonservicehr_k * 100, nonservicendcg_k * 100])
 
-
-    # 使用 pandas DataFrame 存储结果
+    # Store the results in a pandas DataFrame
     df = pd.DataFrame(results, columns=["k", "HR@k", "NDCG@k", "nonserviceHR@k", "nonserviceNDCG@k"])
     df.to_csv(filename, index=False)
     print(f"Results saved to {filename}")
@@ -390,7 +421,7 @@ def sub_main(train_path, predict_path):
 
     train_df = pd.read_csv(os.path.join(train_path, "data_final.csv"))
     predict_df = pd.read_csv(os.path.join(predict_path, "data_final.csv"))
-    performance_graph_data=quality_graph_data
+    performance_graph_data = quality_graph_data
 
     train_df = filter_dataframe(train_df, performance_graph_data)
     predict_df = filter_dataframe(predict_df, performance_graph_data)
@@ -411,29 +442,29 @@ def sub_main(train_path, predict_path):
     # logging.info(f"node_ids:{X_node1_id} {X_node2_id} {y_id}")
 
     model = GraphAnomalyDetectionModel(
-        num_nodes=train_data[0].x.shape[0],  # 你应该传入图的节点数
-        num_features=train_data[0].x.shape[1],  # 你可以用 DataFrame 的列数来决定每个节点的特征维度
-        num_bins=4,  # 根据需求设置聚类数量
-        latent_dim=16,  # 潜在空间维度
+        num_nodes=train_data[0].x.shape[0],  # You should pass the number of nodes in the graph
+        num_features=train_data[0].x.shape[1],  # You can determine the feature dimension for each node from the DataFrame column count
+        num_bins=4,  # Set the number of clusters as needed
+        latent_dim=16,  # Latent space dimension
         encoder_hidden_channels=32,
         decoder_hidden_channels=32,
-        epochs=100,  # 设置训练的epoch数量
-        model_dir="models",  # 模型保存路径
+        epochs=100,  # Set the number of epochs for training
+        model_dir="models",  # Model save path
         num_layers=4,
         dropout_prob=0.01,
         lr=1e-3,
     )
-    model.node_recon_errors = {}  # 初始化节点重构误差字典
-    model.feature_recon_errors = {}  # 初始化特征重构误差字典
+    model.node_recon_errors = {}  # Initialize node reconstruction error dictionary
+    model.feature_recon_errors = {}  # Initialize feature reconstruction error dictionary
 
     model_path = project_root + "/llmrca/rca_algorithm/models/encoder.pth"
     if os.path.exists(model_path):
         pass
     else:
-        # 训练模型
+        # Train the model
         model.fit(train_data)
         model.save_models()
-    # 预测模型
+    # Predict using the model
     reconstructions = model.predict(predict_data)
     test_node_z_scores, test_feature_z_scores = model.compute_anomaly_scores(predict_data, reconstructions)
 
@@ -457,7 +488,7 @@ def sub_main(train_path, predict_path):
     new_performance_graph_data = {**performance_graph_data, **add_performance_graph_data}
     component_nodes, leaf_nodes = classify_nodes_with_duration(new_performance_graph_data)
     nonservice_names_and_scores_all = [[(name, score) for score, name in sublist if name in leaf_nodes] for sublist in sorted_names_and_scores_all]
-    # 找到对应的父节点 component 节点
+    # Find the corresponding parent component nodes
     service_names_and_scores_all = find_parent_components_with_scores(nonservice_names_and_scores_all, performance_graph_data, sorted_names_and_scores_all)
     # =========
 
@@ -478,7 +509,7 @@ def sub_main(train_path, predict_path):
 
 
 if __name__ == "__main__":
-    jump_folder = ["7.1", "7.2", "7.3","9.2"]
+    jump_folder = ["7.1", "7.2", "7.3", "9.2"]
     model_dir_path = project_root + "/llmrca/rca_algorithm/models"
     for filename in os.listdir(model_dir_path):
         file_path = model_dir_path + "/" + filename

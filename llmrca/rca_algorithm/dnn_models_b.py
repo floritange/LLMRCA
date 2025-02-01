@@ -2,26 +2,26 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.ensemble import GradientBoostingRegressor  # 使用 XGBoost 的替代品
+from sklearn.ensemble import GradientBoostingRegressor  # Use a substitute for XGBoost
 from torch_geometric.nn import GATConv, GCNConv, SAGEConv
 from torch_geometric.data import Data, DataLoader
 from torch_geometric.utils import dense_to_sparse
 import logging
-import joblib  # 用于保存和加载模型组件
+import joblib  # For saving and loading model components
 import os
 import json
 import torch.nn.functional as F
 
-# 设置日志
+# Set up logging
 logging.basicConfig(
-    level=logging.INFO,  # 日志级别
+    level=logging.INFO,  # Log level
     format="%(asctime)s - %(name)s - [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],  # 输出到控制台
+    handlers=[logging.StreamHandler()],  # Output to console
 )
 
 logger = logging.getLogger(__name__)
 
-# """ 普通GAT 无Res"""
+# """ Regular GAT without Res """
 # class GATEncoder(nn.Module):
 #     def __init__(self, in_channels, encoder_hidden_channels, latent_dim, num_layers=3, heads=1, dropout_prob=0.01):
 #         super(GATEncoder, self).__init__()
@@ -128,39 +128,41 @@ logger = logging.getLogger(__name__)
 #         return x_recon
 
 
-''' GCN '''
+""" GCN """
+
+
 class GATEncoder(nn.Module):
     def __init__(self, in_channels, encoder_hidden_channels, latent_dim, num_layers=3, dropout_prob=0.01):
         super(GATEncoder, self).__init__()
-        # 对输入特征 x 进行线性变换，调整维度
+        # Linear transformation of input features x to adjust dimensions
         self.linear_input = nn.Linear(in_channels, encoder_hidden_channels)
         self.gcn_layers = nn.ModuleList()
         self.linear_skip_layers = nn.ModuleList()
-        # 后续层GCN层：每层输入encoder_hidden_channels，输出encoder_hidden_channels
+        # Subsequent GCN layers: each layer takes encoder_hidden_channels as input and produces encoder_hidden_channels as output
         for _ in range(num_layers):
             self.gcn_layers.append(GCNConv(encoder_hidden_channels, encoder_hidden_channels))
             self.linear_skip_layers.append(nn.Linear(encoder_hidden_channels, latent_dim))
-        # Latent层：最后一层GCN，输出latent_dim
+        # Latent layer: the final GCN layer produces latent_dim
         self.latent_layer = GCNConv(encoder_hidden_channels, latent_dim)
         self.dropout = nn.Dropout(p=dropout_prob)
         self.leaky_relu = nn.LeakyReLU(0.2)
 
     def forward(self, x, edge_index):
-        # 先将输入特征 x 经过线性变换，调整维度为 encoder_hidden_channels
+        # First apply linear transformation to input features x, adjusting to encoder_hidden_channels
         h = self.linear_input(x)
         skip_connections = []
 
-        # 对每一层应用GCN并记录跳跃连接
+        # Apply GCN to each layer and record skip connections
         for layer in self.gcn_layers:
-            skip_connections.append(h)  # 记录当前层的输出（跳跃连接）
+            skip_connections.append(h)  # Record the output of the current layer (skip connection)
             h = self.leaky_relu(layer(h, edge_index))  # Apply GCNConv and LeakyReLU
-            h = self.dropout(h)  # Dropout
-        # 最后一层的latent表示
+            h = self.dropout(h)  # Apply Dropout
+        # The final latent representation
         latent = self.latent_layer(h, edge_index)
-        # 使用线性层调整每个跳跃连接的维度，使其和latent一致
+        # Use linear layers to adjust the dimensions of each skip connection to match latent
         for i in range(len(skip_connections)):
             skip_connections[i] = self.linear_skip_layers[i](skip_connections[i])
-        # 将所有跳跃连接与latent加在一起
+        # Combine all skip connections with latent
         for skip in skip_connections:
             latent = latent + skip
         return latent
@@ -173,12 +175,12 @@ class GATDecoder(nn.Module):
         self.linear_input = nn.Linear(latent_dim, decoder_hidden_channels)
         self.gcn_layers = nn.ModuleList()
         self.linear_skip_layers = nn.ModuleList()
-        # GCN层：每层输入decoder_hidden_channels，输出decoder_hidden_channels
+        # GCN layers: each layer takes decoder_hidden_channels as input and produces decoder_hidden_channels as output
         for _ in range(num_layers):
             self.gcn_layers.append(GCNConv(decoder_hidden_channels, decoder_hidden_channels))
-            self.linear_skip_layers.append(nn.Linear(decoder_hidden_channels, out_channels))  # 对应的线性层
+            self.linear_skip_layers.append(nn.Linear(decoder_hidden_channels, out_channels))  # Corresponding linear layers
 
-        # 重构输出层，最后输出out_channels维度
+        # Reconstruction output layer, finally output out_channels dimension
         self.final_layer = nn.Linear(decoder_hidden_channels, out_channels)
         self.dropout = nn.Dropout(p=dropout_prob)
 
@@ -186,90 +188,71 @@ class GATDecoder(nn.Module):
         h = self.linear_input(z)
         skip_connections = []
 
-        # 对每一层应用GCN并记录跳跃连接
+        # Apply GCN to each layer and record skip connections
         for layer in self.gcn_layers:
             skip_connections.append(h)
             h = F.leaky_relu(layer(h, edge_index), negative_slope=0.2)
-            h = self.dropout(h)  # Dropout
-        # 最后一层的重构输出
+            h = self.dropout(h)  # Apply Dropout
+        # The final reconstruction output
         x_recon = self.final_layer(h)
-        # 使用线性层调整每个跳跃连接的维度，使其和x_recon一致
+        # Use linear layers to adjust the dimensions of each skip connection to match x_recon
         for i in range(len(skip_connections)):
             skip_connections[i] = self.linear_skip_layers[i](skip_connections[i])
-        # 将所有跳跃连接与x_recon进行加法融合
+        # Combine all skip connections with x_recon
         for skip in skip_connections:
             x_recon = x_recon + skip
         return x_recon
 
 
-""" 原本GAT """
+""" Original GAT """
 # class GATEncoder(nn.Module):
 #     def __init__(self, in_channels, encoder_hidden_channels, latent_dim, num_layers=3, heads=1, dropout_prob=0.01):
 #         super(GATEncoder, self).__init__()
-#         # 对输入特征 x 进行线性变换，调整维度，使其与GATConv的输入维度一致
 #         self.linear_input = nn.Linear(in_channels, encoder_hidden_channels * heads)
 #         self.gat_layers = nn.ModuleList()
 #         self.linear_skip_layers = nn.ModuleList()
-#         # 后续层GAT层：每层输入encoder_hidden_channels * heads，输出encoder_hidden_channels * heads
-#         # 为每一层的跳跃连接使用独立的线性变换
 #         for _ in range(num_layers):
 #             self.gat_layers.append(GATConv(encoder_hidden_channels * heads, encoder_hidden_channels, heads=heads, concat=True))
 #             self.linear_skip_layers.append(nn.Linear(encoder_hidden_channels * heads, latent_dim))
-#         # Latent层：最后一层GAT，输出latent_dim，注意这里concat=False
 #         self.latent_layer = GATConv(encoder_hidden_channels * heads, latent_dim, heads=1, concat=False)
 #         self.dropout = nn.Dropout(p=dropout_prob)
 #         self.leaky_relu = nn.LeakyReLU(0.2)
 
 #     def forward(self, x, edge_index):
-#         # 先将输入特征 x 经过线性变换，调整维度为 encoder_hidden_channels * heads
 #         h = self.linear_input(x)
 #         skip_connections = []
-
-#         # 对每一层应用GAT并记录跳跃连接
 #         for layer in self.gat_layers:
-#             skip_connections.append(h)  # 记录当前层的输出（跳跃连接）
-#             h = self.leaky_relu(layer(h, edge_index))  # Apply GATConv and LeakyReLU
-#             h = self.dropout(h)  # Dropout
-#         # 最后一层的latent表示
+#             skip_connections.append(h)
+#             h = self.leaky_relu(layer(h, edge_index))
+#             h = self.dropout(h)
 #         latent = self.latent_layer(h, edge_index)
-#         # 使用线性层调整每个跳跃连接的维度，使其和latent一致
 #         for i in range(len(skip_connections)):
 #             skip_connections[i] = self.linear_skip_layers[i](skip_connections[i])
-#         # 将所有跳跃连接与latent加在一起
 #         for skip in skip_connections:
 #             latent = latent + skip
 #         return latent
 # class GATDecoder(nn.Module):
 #     def __init__(self, latent_dim, decoder_hidden_channels, out_channels, num_layers=3, heads=1, dropout_prob=0.01):
 #         super(GATDecoder, self).__init__()
-
 #         self.linear_input = nn.Linear(latent_dim, decoder_hidden_channels * heads)
 #         self.gat_layers = nn.ModuleList()
 #         self.linear_skip_layers = nn.ModuleList()
-#         # GAT层：每层输入decoder_hidden_channels * heads，输出decoder_hidden_channels * heads
 #         for _ in range(num_layers):
 #             self.gat_layers.append(GATConv(decoder_hidden_channels * heads, decoder_hidden_channels, heads=heads, concat=True))
-#             self.linear_skip_layers.append(nn.Linear(decoder_hidden_channels * heads, out_channels))  # 对应的线性层
-
-#         # 重构输出层，最后输出out_channels维度
+#             self.linear_skip_layers.append(nn.Linear(decoder_hidden_channels * heads, out_channels))
 #         self.final_layer = nn.Linear(decoder_hidden_channels * heads, out_channels)
 #         self.dropout = nn.Dropout(p=dropout_prob)
 
 #     def forward(self, z, edge_index):
 #         h = self.linear_input(z)
 #         skip_connections = []
-
-#         # 对每一层应用GAT并记录跳跃连接
 #         for layer in self.gat_layers:
 #             skip_connections.append(h)
 #             h = F.leaky_relu(layer(h, edge_index), negative_slope=0.2)
-#             h = self.dropout(h)  # Dropout
-#         # 最后一层的重构输出
+#             h = self.dropout(h)
 #         x_recon = self.final_layer(h)
-#         # 使用线性层调整每个跳跃连接的维度，使其和x_recon一致
 #         for i in range(len(skip_connections)):
 #             skip_connections[i] = self.linear_skip_layers[i](skip_connections[i])
-#         # 将所有跳跃连接与x_recon进行加法融合
 #         for skip in skip_connections:
 #             x_recon = x_recon + skip
 #         return x_recon
@@ -325,7 +308,9 @@ class Decoder(nn.Module):
 
 
 class GraphAnomalyDetectionModel:
-    def __init__(self, num_nodes=100, num_features=10, num_bins=4, latent_dim=8, encoder_hidden_channels=8, decoder_hidden_channels=32, num_layers=1, dropout_prob=0.01, lr=1e-3, epochs=1000, model_dir="models"):
+    def __init__(
+        self, num_nodes=100, num_features=10, num_bins=4, latent_dim=8, encoder_hidden_channels=8, decoder_hidden_channels=32, num_layers=1, dropout_prob=0.01, lr=1e-3, epochs=1000, model_dir="models"
+    ):
         self.num_nodes = num_nodes
         self.num_features = num_features
         self.num_bins = num_bins
@@ -334,13 +319,13 @@ class GraphAnomalyDetectionModel:
         self.decoder_hidden_channels = decoder_hidden_channels
         self.lr = lr
         self.epochs = epochs
-        self.model_dir = model_dir  # 模型文件夹路径
+        self.model_dir = model_dir  # Model folder path
         self.in_channels = num_features
         self.out_channels = num_features
         self.num_layers = num_layers
         self.dropout_prob = dropout_prob
 
-        # 检查模型文件夹是否存在，不存在则创建
+        # Check if model folder exists, if not, create it
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
 
@@ -352,7 +337,7 @@ class GraphAnomalyDetectionModel:
         self.kmeans = None
         self.encoder_one_hot = None
 
-        # 保存模型超参数
+        # Save model hyperparameters
         self.model_params = {
             "num_nodes": self.num_nodes,
             "num_features": self.num_features,
@@ -366,16 +351,16 @@ class GraphAnomalyDetectionModel:
             "out_channels": self.out_channels,
         }
 
-        # 模型组件将在 fit 方法中初始化
+        # Model components will be initialized in the fit method
         self.encoder = None
         self.decoder = None
 
-        # 用于存储训练时每个节点和每个特征的重构误差，用于计算均值和方差
-        self.node_recon_errors = {}  # 字典，键为节点位置索引，值为重构误差列表
-        self.feature_recon_errors = {}  # 字典，键为节点位置索引，值为每个特征的重构误差列表
+        # Used to store reconstruction errors for each node and feature during training to compute mean and variance
+        self.node_recon_errors = {}  # Dictionary with node positions as keys and reconstruction errors as lists
+        self.feature_recon_errors = {}  # Dictionary with node positions as keys and feature reconstruction errors as lists
 
-        # 数据增强模型
-        self.xgb_model = None  # 使用 GradientBoostingRegressor
+        # Data augmentation model
+        self.xgb_model = None  # Using GradientBoostingRegressor
 
         # Store scaling parameters and split_values
         self.X_max = None
@@ -384,27 +369,31 @@ class GraphAnomalyDetectionModel:
         self.split_values = None  # (num_bins + 1,)
         self.X_range = None
 
-    # 辅助函数
+    # Helper functions
     def filter_extreme_values(self, y_pred):
         """
-        去除预测结果的 5%-95% 之外的极端值
+        Remove extreme values outside of the 5%-95% range from the predicted results
         """
         lower_percentile = np.percentile(y_pred, 5)
         upper_percentile = np.percentile(y_pred, 95)
         return y_pred[(y_pred >= lower_percentile) & (y_pred <= upper_percentile)]
 
     def initialize_models(self, in_channels, out_channels):
-        """根据数据维度初始化模型组件"""
+        """Initialize model components based on data dimensions"""
         logger.debug("Initializing models...")
-        self.encoder = GATEncoder(in_channels=in_channels, encoder_hidden_channels=self.encoder_hidden_channels, latent_dim=self.latent_dim, num_layers=self.num_layers, dropout_prob=self.dropout_prob).to(self.device)
-        self.decoder = GATDecoder(latent_dim=self.latent_dim, decoder_hidden_channels=self.decoder_hidden_channels, out_channels=out_channels, num_layers=self.num_layers, dropout_prob=self.dropout_prob).to(self.device)
-        # 设置优化器
+        self.encoder = GATEncoder(
+            in_channels=in_channels, encoder_hidden_channels=self.encoder_hidden_channels, latent_dim=self.latent_dim, num_layers=self.num_layers, dropout_prob=self.dropout_prob
+        ).to(self.device)
+        self.decoder = GATDecoder(
+            latent_dim=self.latent_dim, decoder_hidden_channels=self.decoder_hidden_channels, out_channels=out_channels, num_layers=self.num_layers, dropout_prob=self.dropout_prob
+        ).to(self.device)
+        # Set the optimizer
         self.optimizer = optim.Adam(list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=self.lr)
         logger.debug("Models initialized.")
 
     def feature_enhancement(self, data_list, fit=True):
-        """对批量图数据进行特征增强，按节点特征进行 Min-Max 归一化"""
-        # 将所有图的节点特征合并为一个数组
+        """Perform feature enhancement on a batch of graph data using Min-Max normalization on node features"""
+        # Combine all node features from all graphs into one array
         X = np.array([data.x.numpy() for data in data_list])  # shape: (num_graphs, num_nodes, num_features)
         logger.debug(f"Feature Enhancement: Combined X shape: {X.shape}")
 
@@ -416,32 +405,28 @@ class GraphAnomalyDetectionModel:
             self.num_features = num_features
 
         if fit:
-            # 计算每个节点和每个特征在所有图上的最小值和最大值
+            # Calculate the minimum and maximum values for each node and feature across all graphs
             self.X_min = X.min(axis=0)  # shape: (num_nodes, num_features)
             self.X_max = X.max(axis=0)  # shape: (num_nodes, num_features)
-            # 处理除以零的情况
+            # Handle division by zero
             self.X_range = self.X_max - self.X_min
             self.X_range[self.X_range == 0] = 1e-6
-            # 应用 Min-Max 归一化
+            # Apply Min-Max normalization
             X_norm = (X - self.X_min) / self.X_range  # shape: (num_graphs, num_nodes, num_features)
 
-            # 特征增强：使用第1号和第2号节点的特征[0]来拟合第0号节点的特征[0]
+            # Feature enhancement: use features of node 1 and node 2 to fit features of node 0
             if self.num_nodes < 3:
                 raise ValueError("num_nodes must be at least 3 for node1 and node2 features.")
 
-            X_node1 = X_norm[:, 1, 0]  # 每个图的第1号节点的特征0 (shape: [num_graphs,])
-            X_node2 = X_norm[:, 2, 0]  # 每个图的第2号节点的特征0 (shape: [num_graphs,])
-            y = X_norm[:, 0, 0]  # 每个图的第0号节点的特征0 (shape: [num_graphs,])
-
-            # X_node1 = X[:, 35, 0]  # 每个图的第1号节点的特征0 (shape: [num_graphs,])
-            # X_node2 = X[:, 36, 0]  # 每个图的第2号节点的特征0 (shape: [num_graphs,])
-            # y = X[:, 26, 0]  # 每个图的第0号节点的特征0 (shape: [num_graphs,])
+            X_node1 = X_norm[:, 1, 0]  # Feature 0 of node 1 in each graph (shape: [num_graphs,])
+            X_node2 = X_norm[:, 2, 0]  # Feature 0 of node 2 in each graph (shape: [num_graphs,])
+            y = X_norm[:, 0, 0]  # Feature 0 of node 0 in each graph (shape: [num_graphs,])
 
             logger.debug(f"Feature Enhancement: X_node1 shape: {X_node1.shape}")
             logger.debug(f"Feature Enhancement: X_node2 shape: {X_node2.shape}")
             logger.debug(f"Feature Enhancement: y shape: {y.shape}")
 
-            # 训练 GradientBoostingRegressor 模型（作为 XGBoost 的替代品）
+            # Train GradientBoostingRegressor model (as a substitute for XGBoost)
             X_features = np.column_stack((X_node1, X_node2))  # shape: (num_graphs, 2)
             logger.debug(f"Feature Enhancement: X_features shape: {X_features.shape}")
 
@@ -460,60 +445,56 @@ class GraphAnomalyDetectionModel:
             logger.debug(f"Feature Enhancement: Split values: {self.split_values}")
 
             # Classify y_pred into bins
-            y_classified = np.digitize(y_pred, self.split_values[1:-1])  # 分类结果 (0到num_bins-1)
+            y_classified = np.digitize(y_pred, self.split_values[1:-1])  # Classification result (0 to num_bins-1)
             logger.debug(f"Feature Enhancement: y_classified shape: {y_classified.shape}")
             logger.debug(f"Feature Enhancement: y_classified: {y_classified}")
 
-            # 生成 One-Hot 编码
+            # Generate One-Hot encoding
             class_features = np.eye(self.num_bins)[y_classified]  # shape: (num_graphs, num_bins)
             logger.debug(f"Feature Enhancement: class_features shape: {class_features.shape}")
         else:
-            # 应用 Min-Max 归一化
+            # Apply Min-Max normalization
             X_norm = (X - self.X_min) / self.X_range  # shape: (num_graphs, num_nodes, num_features)
             logger.debug(f"Feature Enhancement: X_norm (test) shape: {X_norm.shape}")
 
-            # # 特征增强：使用第1号和第2号节点的特征0来预测第0号节点的特征0
-            X_node1 = X_norm[:, 1, 0]  # 每个图的第1号节点的特征0 (shape: [num_graphs,])
-            X_node2 = X_norm[:, 2, 0]  # 每个图的第2号节点的特征0 (shape: [num_graphs,])
+            # Feature enhancement: use features of node 1 and node 2 to predict features of node 0
+            X_node1 = X_norm[:, 1, 0]  # Feature 0 of node 1 in each graph (shape: [num_graphs,])
+            X_node2 = X_norm[:, 2, 0]  # Feature 0 of node 2 in each graph (shape: [num_graphs,])
             X_features = np.column_stack((X_node1, X_node2))  # shape: (num_graphs, 2)
             logger.debug(f"Feature Enhancement: X_features (test) shape: {X_features.shape}")
 
-            # X_node1 = X[:, 35, 0]  # 每个图的第1号节点的特征0 (shape: [num_graphs,])
-            # X_node2 = X[:, 36, 0]  # 每个图的第2号节点的特征0 (shape: [num_graphs,])
-            # X_features = np.column_stack((X_node1, X_node2))  # shape: (num_graphs, 2)
-
-            # 预测
+            # Predict
             X_pred = self.xgb_model.predict(X_features)  # shape: (num_graphs,)
             y_true = X[:, 0, 0]  # shape: (num_graphs,)
 
-            # 根据 split_values 进行分类
+            # Classify based on split_values
             y_classified = np.digitize(X_pred, self.split_values[1:-1])  # shape: (num_graphs,)
             logger.debug(f"Feature Enhancement: y_classified (test) shape: {y_classified.shape}")
             logger.debug(f"Feature Enhancement: y_classified (test): {y_classified}")
 
-            # 生成 One-Hot 编码
+            # Generate One-Hot encoding
             class_features = np.eye(self.num_bins)[y_classified]  # shape: (num_graphs, num_bins)
             logger.debug(f"Feature Enhancement: class_features (test) shape: {class_features.shape}")
 
-        # 扩展 class_features 以匹配每个节点的特征
+        # Expand class_features to match each node's features
         class_features_expanded = np.repeat(class_features[:, np.newaxis, :], self.num_nodes, axis=1)  # shape: (num_graphs, num_nodes, num_bins)
         logger.debug(f"Feature Enhancement: class_features_expanded shape: {class_features_expanded.shape}")
 
-        # 合并增强特征
+        # Combine enhanced features
         X_prime = np.concatenate((X_norm, class_features_expanded), axis=-1)  # shape: (num_graphs, num_nodes, num_features + num_bins)
         # X_prime = np.concatenate((X, class_features_expanded), axis=-1)  # shape: (num_graphs, num_nodes, num_features + num_bins)
         logger.debug(f"Feature Enhancement: X_prime shape after concatenation: {X_prime.shape}")
 
-        # 将增强后的特征重新分配给各个图
+        # Reassign enhanced features to each graph
         for i, data in enumerate(data_list):
-            data.x_origin = data.x.clone()  # 保留原始特征，重命名为 x_origin
-            data.x = torch.tensor(X_prime[i, :, :], dtype=torch.float)  # 显式切片，或者直接使用 X_prime[i]
+            data.x_origin = data.x.clone()  # Keep original features, renamed as x_origin
+            data.x = torch.tensor(X_prime[i, :, :], dtype=torch.float)  # Explicitly slice, or directly use X_prime[i]
 
         return data_list
 
     def fit(self, train_data):
-        """训练模型"""
-        # 进行特征增强
+        """Train the model"""
+        # Perform feature enhancement
         enhanced_train_data = self.feature_enhancement(train_data, fit=True)
         # for id, data in enumerate(enhanced_train_data):
         #     enhanced_train_data[id].x = enhanced_train_data[id].x[:, 0].unsqueeze(-1)  # shape: (num_nodes, 1)
@@ -529,21 +510,21 @@ class GraphAnomalyDetectionModel:
         self.model_params["in_channels"] = self.in_channels
         self.model_params["out_channels"] = self.out_channels
 
-        # 初始化模型
+        # Initialize models
         self.initialize_models(self.in_channels, self.out_channels)
 
-        # 创建内部 DataLoader
-        self.train_loader = DataLoader(enhanced_train_data, batch_size=1, shuffle=False)  # 每个 batch 是一个图
+        # Create internal DataLoader
+        self.train_loader = DataLoader(enhanced_train_data, batch_size=1, shuffle=False)  # Each batch is one graph
         logger.debug("Starting training...")
 
-        # 设置模型为训练模式
+        # Set models to training mode
         self.encoder.train()
         self.decoder.train()
 
         for epoch in range(self.epochs):
             total_loss = 0.0
             for batch_idx, batch_data in enumerate(self.train_loader):
-                # 获取增强后的特征和边
+                # Get enhanced features and edges
                 X_prime = batch_data.x.to(self.device)  # shape: (num_nodes, num_features + num_bins)
                 X_original = batch_data.x_origin.to(self.device)  # shape: (num_nodes, num_features)
                 edge_index = batch_data.edge_index.to(self.device)
@@ -559,13 +540,13 @@ class GraphAnomalyDetectionModel:
                 # logger.debug(f"fit X_recon: {X_recon[:, : self.out_channels]}")
                 # logger.debug(f"fit X_prime: {X_prime}")
 
-                # 计算原始特征的重构误差
+                # Calculate reconstruction error for original features
                 loss_recon = self.criterion_recon(X_recon, X_prime[:, : self.out_channels])
 
-                # 总损失
+                # Total loss
                 loss_total = loss_recon
 
-                # 反向传播
+                # Backpropagation
                 loss_total.backward()
                 self.optimizer.step()
 
@@ -577,25 +558,25 @@ class GraphAnomalyDetectionModel:
                 # logging.info(f"X_recon: {X_recon[:5]}")
                 # logging.info(f"X_prime: {X_prime[:5]}")
 
-        # 训练完成后进行预测并记录重构误差
+        # After training, perform prediction and record reconstruction errors
         self.evaluate(enhanced_train_data)
 
     def evaluate(self, data_list):
-        """在训练完成后对训练数据进行预测，并记录每个节点和每个特征的重构误差"""
+        """After training, predict on training data and record reconstruction errors for each node and feature"""
         self.encoder.eval()
         self.decoder.eval()
         self.eval_loader = DataLoader(data_list, batch_size=1, shuffle=False)
 
         with torch.no_grad():
             for i, data in enumerate(self.eval_loader):
-                # 获取增强后的特征和边
+                # Get enhanced features and edges
                 X_prime = data.x.to(self.device)  # shape: (num_nodes, num_features + num_bins)
                 X_original = data.x_origin.to(self.device)  # shape: (num_nodes, num_features)
                 edge_index = data.edge_index.to(self.device)
 
-                # 编码器
+                # Encoder
                 Z = self.encoder(X_prime, edge_index)
-                # 解码器
+                # Decoder
                 X_recon = self.decoder(Z, edge_index)
 
                 X_recon_inverse = X_recon.cpu().numpy() * self.X_range + self.X_min
@@ -605,17 +586,17 @@ class GraphAnomalyDetectionModel:
 
                 # X_original = X_prime[:, : self.out_channels].cpu().detach().numpy()
 
-                # 计算原始特征的重构误差
+                # Calculate reconstruction error for original features
                 recon_errors_node = np.sum((X_recon_inverse - X_original) ** 2, axis=1)  # shape: (num_nodes,)
                 recon_errors_feature = (X_recon_inverse - X_original) ** 2  # shape: (num_nodes, num_features)
-                # 记录每个节点的重构误差
+                # Record reconstruction errors for each node
                 for node_pos in range(data.num_nodes):
                     error_node = recon_errors_node[node_pos]
                     if node_pos not in self.node_recon_errors:
                         self.node_recon_errors[node_pos] = []
                     self.node_recon_errors[node_pos].append(error_node)
 
-                    # 记录每个特征的重构误差
+                    # Record reconstruction errors for each feature
                     if node_pos not in self.feature_recon_errors:
                         self.feature_recon_errors[node_pos] = [[] for _ in range(self.out_channels)]
                     for feature_pos in range(self.out_channels):
@@ -625,12 +606,12 @@ class GraphAnomalyDetectionModel:
         logger.debug("Evaluation completed.")
 
     def predict(self, test_data):
-        """使用训练好的模型对新数据进行预测，返回所有图所有节点所有特征的预测重构结果"""
+        """Use the trained model to predict new data and return the predicted reconstruction results for all graphs, nodes, and features"""
         self.load_models()
-        # 进行特征增强
+        # Perform feature enhancement
         enhanced_test_data = self.feature_enhancement(test_data, fit=False)
-        # 创建内部 DataLoader
-        test_loader = DataLoader(enhanced_test_data, batch_size=1, shuffle=False)  # 每个 batch 是一个图
+        # Create internal DataLoader
+        test_loader = DataLoader(enhanced_test_data, batch_size=1, shuffle=False)  # Each batch is one graph
         logger.debug("Starting prediction...")
 
         self.encoder.eval()
@@ -639,18 +620,18 @@ class GraphAnomalyDetectionModel:
         all_reconstructions = []
 
         for batch_idx, batch_data in enumerate(test_loader):
-            # 获取增强后的特征和边
+            # Get enhanced features and edges
             X_prime = batch_data.x.to(self.device)  # shape: (num_nodes, num_features + num_bins)
             edge_index = batch_data.edge_index.to(self.device)
 
             with torch.no_grad():
-                # 编码器
+                # Encoder
                 Z = self.encoder(X_prime, edge_index)
 
-                # 解码器
+                # Decoder
                 X_recon = self.decoder(Z, edge_index)
 
-                # 保存重构结果
+                # Save reconstruction results
                 X_recon_inverse = X_recon.cpu().numpy() * self.X_range + self.X_min
                 # X_recon_inverse = X_recon.cpu().numpy()
                 all_reconstructions.append(X_recon_inverse)
@@ -658,13 +639,13 @@ class GraphAnomalyDetectionModel:
                 # logger.debug(f"predict X_recon: {X_recon}")
                 # logger.debug(f"predict X_recon_inverse: {X_recon_inverse}")
 
-        # 将所有重构结果组合成一个数组，形状为 (图数, 节点数, 特征数)
+        # Combine all reconstruction results into one array, shape: (num_graphs, num_nodes, num_features)
         all_reconstructions = np.stack(all_reconstructions, axis=0)
         return all_reconstructions
 
     def save_models(self):
-        """保存模型和组件"""
-        # 保存模型和组件
+        """Save the models and components"""
+        # Save models and components
         logger.debug("Saving models and components...")
         torch.save(self.encoder.state_dict(), os.path.join(self.model_dir, "encoder.pth"))
         torch.save(self.decoder.state_dict(), os.path.join(self.model_dir, "decoder.pth"))
@@ -685,14 +666,14 @@ class GraphAnomalyDetectionModel:
         logger.debug("Models and components saved successfully.")
 
     def load_models(self):
-        """加载模型和组件"""
+        """Load the models and components"""
         if os.path.exists(self.model_dir):
             logger.debug("Loading models and components...")
-            # 加载模型超参数
+            # Load model hyperparameters
             with open(os.path.join(self.model_dir, "model_params.json"), "r") as f:
                 self.model_params = json.load(f)
 
-            # 加载其他组件
+            # Load other components
             components = joblib.load(os.path.join(self.model_dir, "model_components.pkl"))
             self.X_max = components["X_max"]
             self.X_min = components["X_min"]
@@ -705,10 +686,10 @@ class GraphAnomalyDetectionModel:
             self.in_channels = self.model_params["in_channels"]
             self.out_channels = self.model_params["out_channels"]
 
-            # 初始化模型
+            # Initialize models
             self.initialize_models(self.model_params["in_channels"], self.model_params["out_channels"])
 
-            # 加载模型权重
+            # Load model weights
             self.encoder.load_state_dict(torch.load(os.path.join(self.model_dir, "encoder.pth")))
             self.decoder.load_state_dict(torch.load(os.path.join(self.model_dir, "decoder.pth")))
 
@@ -718,26 +699,26 @@ class GraphAnomalyDetectionModel:
             return None
 
     def compute_anomaly_scores(self, test_data, reconstructions):
-        """根据预测的重构结果计算z-score，并返回所需的四个列表"""
-        # 初始化字典存储重构误差
+        """Compute z-scores based on predicted reconstruction results and return the required four lists"""
+        # Initialize dictionaries to store reconstruction errors
         test_node_recon_errors = {}
         test_feature_recon_errors = {}
 
-        # 初始化列表存储所有图的重构误差
+        # Initialize lists to store reconstruction errors for all graphs
         test_node_z_scores = []  # shape: (num_graphs, num_nodes)
         test_feature_z_scores = []  # shape: (num_graphs, num_nodes, num_features)
 
-        # 计算每个图的重构误差
+        # Compute reconstruction errors for each graph
         for graph_idx, (batch_data, X_recon) in enumerate(zip(test_data, reconstructions)):
             X_original = batch_data.x_origin.cpu().numpy()  # shape: (num_nodes, num_features)
             # X_original = batch_data.x[:, : self.out_channels].cpu().numpy()  # shape: (num_nodes, num_features)
 
             recon_errors_node = np.sum((X_recon - X_original) ** 2, axis=1)  # shape: (num_nodes,)
             recon_errors_feature = (X_recon - X_original) ** 2  # shape: (num_nodes, num_features)
-            # 初始化当前图的 z-score 列表
+            # Initialize z-score list for the current graph
             current_graph_node_z_scores = []
             current_graph_feature_z_scores = []
-            # 计算每个节点的z-score
+            # Compute z-scores for each node
             for node_pos in range(batch_data.num_nodes):
                 error_node = recon_errors_node[node_pos]
                 mean_node = np.mean(self.node_recon_errors[node_pos])
@@ -765,44 +746,44 @@ class GraphAnomalyDetectionModel:
 
 
 def create_synthetic_data(num_graphs=100, num_nodes=100, num_features=10, num_clusters=3):
-    """生成合成图数据"""
+    """Generate synthetic graph data"""
     data_list = []
     for _ in range(num_graphs):
         X = np.random.randn(num_nodes, num_features)
         X = 5 + 3 * X
         A = np.random.randint(0, 2, size=(num_nodes, num_nodes))
         A = np.triu(A, 1)
-        A = A + A.T  # 对称邻接矩阵
+        A = A + A.T  # Symmetric adjacency matrix
         edge_index = dense_to_sparse(torch.tensor(A, dtype=torch.float))[0]
         data = Data(x=torch.tensor(X, dtype=torch.float), edge_index=edge_index)
         data_list.append(data)
     return data_list
 
 
-# # 主要训练和预测部分
+# # Main training and prediction part
 # if __name__ == "__main__":
-#     # 创建合成数据
-#     num_graphs = 100  # 样本数量
-#     num_nodes = 5  # 每个图的节点数量
-#     num_features = 10  # 每个节点的特征维度
-#     num_clusters = 3  # 聚类数量
+#     # Create synthetic data
+#     num_graphs = 100  # Number of samples
+#     num_nodes = 5  # Number of nodes per graph
+#     num_features = 10  # Number of features per node
+#     num_clusters = 3  # Number of clusters
 
 #     data_list = create_synthetic_data(num_graphs=num_graphs, num_nodes=num_nodes, num_features=num_features, num_clusters=num_clusters)
-#     train_data = data_list[:80]  # 80个图用于训练
-#     test_data = data_list[80:]  # 20个图用于测试
+#     train_data = data_list[:80]  # 80 graphs for training
+#     test_data = data_list[80:]  # 20 graphs for testing
 
-#     # 初始化模型
-#     model = GraphAnomalyDetectionModel(num_nodes=num_nodes, num_features=num_features, num_bins=4, latent_dim=8, hidden_channels=16, epochs=2, model_dir="models")  # 减少epoch数量以加快示例
+#     # Initialize model
+#     model = GraphAnomalyDetectionModel(num_nodes=num_nodes, num_features=num_features, num_bins=4, latent_dim=8, hidden_channels=16, epochs=2, model_dir="models")  # Reduce epoch count for faster example
 
-#     # 训练模型
-#     model.node_recon_errors = {}  # 初始化重构误差字典
-#     model.feature_recon_errors = {}  # 初始化特征重构误差字典
+#     # Train model
+#     model.node_recon_errors = {}  # Initialize reconstruction error dictionary
+#     model.feature_recon_errors = {}  # Initialize feature reconstruction error dictionary
 #     model.fit(train_data)
 
-#     # 保存模型
+#     # Save model
 #     model.save_models()
 
-#     # 预测模型
+#     # Predict with model
 #     reconstructions = model.predict(test_data)
 #     test_node_z_scores, test_feature_z_scores = model.compute_anomaly_scores(test_data, reconstructions)
 
