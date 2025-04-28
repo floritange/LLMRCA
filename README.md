@@ -14,7 +14,7 @@ cd ./llmrca/rca_algorithm
 python rca_main.py
 ```
 
-**LLMRCA**: A framework for finding root causes in LLM applications when things go wrong.
+**LLMRCA: Multilevel Root Cause Analysis for LLM Applications Using Multimodal Observability Data**
 
 ![LLMRCA Framework](./paper/2LLMRCA_framework_00.png)
 
